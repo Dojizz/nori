@@ -9,6 +9,9 @@
 #include <nori/object.h>
 #include <nori/frame.h>
 #include <nori/bbox.h>
+#include <nori/dpdf.h>
+#include <nori/emitter.h>
+#include <nori/bsdf.h>
 
 NORI_NAMESPACE_BEGIN
 
@@ -33,6 +36,7 @@ struct Intersection {
     Frame geoFrame;
     /// Pointer to the associated mesh
     const Mesh *mesh;
+    uint32_t primIdx;
 
     /// Create an uninitialized intersection record
     Intersection() : mesh(nullptr) { }
@@ -73,8 +77,12 @@ public:
     /// Return the total number of vertices in this shape
     uint32_t getVertexCount() const { return (uint32_t) m_V.cols(); }
 
+    float getAreaSum() const { return m_surface; }
+
     /// Return the surface area of the given triangle
     float surfaceArea(uint32_t index) const;
+
+    Vector3f getSurfaceNormal(uint32_t index) const;
 
     //// Return an axis-aligned bounding box of the entire mesh
     const BoundingBox3f &getBoundingBox() const { return m_bbox; }
@@ -145,6 +153,8 @@ public:
     /// Return a human-readable summary of this instance
     std::string toString() const;
 
+    Point3f sampleUniformPts(Sampler* sampler, Vector3f &normal, float &pdf, uint32_t index);
+
     /**
      * \brief Return the type of object (i.e. Mesh/BSDF/etc.)
      * provided by this instance
@@ -157,12 +167,14 @@ protected:
 
 protected:
     std::string m_name;                  ///< Identifying name
-    MatrixXf      m_V;                   ///< Vertex positions
+    float       m_surface = 0;
+    MatrixXf      m_V;                   ///< Vertex positions, 3 * N
     MatrixXf      m_N;                   ///< Vertex normals
     MatrixXf      m_UV;                  ///< Vertex texture coordinates
-    MatrixXu      m_F;                   ///< Faces
+    MatrixXu      m_F;                   ///< Faces, 3 * N
     BSDF         *m_bsdf = nullptr;      ///< BSDF of the surface
     Emitter    *m_emitter = nullptr;     ///< Associated emitter, if any
+    DiscretePDF *m_dpdf = nullptr;
     BoundingBox3f m_bbox;                ///< Bounding box of the mesh
 };
 

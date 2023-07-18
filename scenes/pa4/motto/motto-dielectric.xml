@@ -17,8 +17,8 @@
         <float name="fov" value="35"/>
 
         <!-- 768 x 768 pixels -->
-        <integer name="width" value="768"/>
-        <integer name="height" value="384"/>
+        <integer name="width" value="2048"/>
+        <integer name="height" value="1024"/>
     </camera>
 
     <mesh type="obj">

@@ -28,6 +28,8 @@ public:
     /// Return a pointer to the scene's kd-tree
     const Accel *getAccel() const { return m_accel; }
 
+    const std::vector<Mesh*> getEmitters() const { return m_emitters; }
+
     /// Return a pointer to the scene's integrator
     const Integrator *getIntegrator() const { return m_integrator; }
 
@@ -106,6 +108,7 @@ public:
     EClassType getClassType() const { return EScene; }
 private:
     std::vector<Mesh *> m_meshes;
+    std::vector<Mesh*> m_emitters;
     Integrator *m_integrator = nullptr;
     Sampler *m_sampler = nullptr;
     Camera *m_camera = nullptr;

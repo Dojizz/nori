@@ -7,9 +7,10 @@
 #pragma once
 
 #include <nori/mesh.h>
+#include <nori/octree.h>
+#include <nori/emAccel.h>
 
 NORI_NAMESPACE_BEGIN
-
 /**
  * \brief Acceleration data structure for ray intersection queries
  *
@@ -54,8 +55,11 @@ public:
     bool rayIntersect(const Ray3f &ray, Intersection &its, bool shadowRay) const;
 
 private:
-    Mesh         *m_mesh = nullptr; ///< Mesh (only a single one for now)
+    std::vector<Mesh*> m_meshes;
     BoundingBox3f m_bbox;           ///< Bounding box of the entire scene
+    OctreeNode   *m_root = nullptr;
+    EmAccel      *m_emAccel = nullptr;
+
 };
 
 NORI_NAMESPACE_END

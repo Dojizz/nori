@@ -30,8 +30,63 @@ public:
         return 0.0f;
     }
 
+    Vector3f refract(const Vector3f wi) const {
+        // ray from ext, refract to int
+        Vector3f wo(0.f);
+        if (Frame::cosTheta(wi) >= 0)
+        {
+            float sinThetaExt = Frame::sinTheta(wi);
+            float sinThetaInt = m_extIOR * sinThetaExt / m_intIOR;
+            if (sinThetaInt > 1 || sinThetaInt < -1)
+                return wo;
+            wo = Vector3f(
+                -wi.x(),
+                -wi.y(),
+                -sqrt((wi.x() * wi.x() + wi.y() * wi.y()) * (1 - sinThetaInt * sinThetaInt)) / sinThetaInt
+            );
+        }
+        // ray from int, refract to ext
+        else
+        {
+            float sinThetaInt = Frame::sinTheta(wi);
+            float sinThetaExt = m_intIOR * sinThetaInt / m_extIOR;
+            if (sinThetaExt > 1 || sinThetaExt < -1)
+                return wo;
+            wo = Vector3f(
+                -wi.x(),
+                -wi.y(),
+                sqrt((wi.x() * wi.x() + wi.y() * wi.y()) * (1 - sinThetaExt * sinThetaExt)) / sinThetaExt
+            );
+        }
+        return wo.normalized();
+    }
+
+    // bRec.wi should be normalized
     Color3f sample(BSDFQueryRecord &bRec, const Point2f &sample) const {
-        throw NoriException("Unimplemented!");
+        // ray from the ext
+        bRec.measure = EDiscrete;
+        float Ro1 = fresnel(Frame::cosTheta(bRec.wi), m_extIOR, m_intIOR);
+        Vector3f refl(-bRec.wi.x(), -bRec.wi.y(), bRec.wi.z());
+        Vector3f refr(refract(bRec.wi));
+        // full reflect
+        if (refr == Vector3f(0.f))
+        {
+            bRec.wo = refl;
+            bRec.eta = 1.f;
+            return Color3f(1.0f);
+        }
+
+        if (sample[0] <= Ro1)
+        {
+            bRec.wo = refl;
+            bRec.eta = 1.f;
+        }
+        else
+        {
+            bRec.wo = refr;
+            bRec.eta = Frame::cosTheta(bRec.wi) > 0 ? m_extIOR / m_intIOR : m_intIOR / m_extIOR;
+        }
+        return Color3f(1.0f);
     }
 
     std::string toString() const {

@@ -55,6 +55,16 @@ template <typename _PointType> struct TBoundingBox {
         : min(min), max(max) {
     }
 
+    /// copy construction
+    TBoundingBox(const TBoundingBox& bbox)
+        : min(bbox.min), max(bbox.max) {
+    }
+
+    /// copy operator, strangely this causes compile error
+    /*operator=(const TBoundingBox& bbox)
+        : min(bbox.min), max(bbox.max) {
+    }*/
+
     /// Test for equality against another bounding box
     bool operator==(const TBoundingBox &bbox) const {
         return min == bbox.min && max == bbox.max;

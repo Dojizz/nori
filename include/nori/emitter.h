@@ -13,8 +13,11 @@ NORI_NAMESPACE_BEGIN
 /**
  * \brief Superclass of all emitters
  */
+
 class Emitter : public NoriObject {
 public:
+
+    virtual Color3f sample() const = 0;
 
     /**
      * \brief Return the type of object (i.e. Mesh/Emitter/etc.) 

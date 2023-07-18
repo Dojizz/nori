@@ -18,6 +18,7 @@
 #include <tbb/task_scheduler_init.h>
 #include <filesystem/resolver.h>
 #include <thread>
+#include <iostream>
 
 using namespace nori;
 
@@ -217,6 +218,9 @@ int main(int argc, char **argv) {
             Bitmap bitmap(exrName);
             ImageBlock block(Vector2i((int) bitmap.cols(), (int) bitmap.rows()), nullptr);
             block.fromBitmap(bitmap);
+
+            std::cout << bitmap.cols() << ' ' << bitmap.rows() << endl;
+            
             nanogui::init();
             NoriScreen *screen = new NoriScreen(block);
             nanogui::mainloop(50.f);

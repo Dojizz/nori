@@ -26,6 +26,19 @@ void Mesh::activate() {
         m_bsdf = static_cast<BSDF *>(
             NoriObjectFactory::createInstance("diffuse", PropertyList()));
     }
+    // initialize the dpdf if the mesh is an emitter
+    m_surface = 0.f;
+    if (m_emitter) {
+        m_dpdf = new DiscretePDF();
+        m_dpdf->reserve(getTriangleCount());
+        for (uint32_t i = 0; i < getTriangleCount(); i++)
+        {
+            auto area = surfaceArea(i);
+            m_dpdf->append(area);
+            m_surface += area;
+        }
+        m_dpdf->normalize();
+    }
 }
 
 float Mesh::surfaceArea(uint32_t index) const {
@@ -34,6 +47,13 @@ float Mesh::surfaceArea(uint32_t index) const {
     const Point3f p0 = m_V.col(i0), p1 = m_V.col(i1), p2 = m_V.col(i2);
 
     return 0.5f * Vector3f((p1 - p0).cross(p2 - p0)).norm();
+}
+
+Vector3f Mesh::getSurfaceNormal(uint32_t index) const {
+    Vector3f v1 = m_V.col(m_F(1, index)) - m_V.col(m_F(0, index));
+    Vector3f v2 = m_V.col(m_F(2, index)) - m_V.col(m_F(0, index));
+    Vector3f normal = v1.cross(v2).normalized();
+    return normal;
 }
 
 bool Mesh::rayIntersect(uint32_t index, const Ray3f &ray, float &u, float &v, float &t) const {
@@ -150,6 +170,28 @@ std::string Intersection::toString() const {
         indent(geoFrame.toString()),
         mesh ? mesh->toString() : std::string("null")
     );
+}
+
+Point3f Mesh::sampleUniformPts(Sampler* sampler, Vector3f& normal, float& pdf, uint32_t index)
+{
+    float xi0 = sampler->next1D(), xi1 = sampler->next1D(), xi2 = sampler->next1D();
+    //std::cout << xi0 << ' ' << xi1 << ' ' << xi2 << std::endl;
+    index = m_dpdf->sample(xi0);
+    // uniform in triangle
+    float alpha = 1 - sqrt(xi1);
+    float beta = xi2 * sqrt(xi1);
+    Point3f p0 = m_V.col(m_F(0, index)), p1 = m_V.col(m_F(1, index)), p2 = m_V.col(m_F(2, index));
+    Point3f pos = alpha * p0 + beta * p1 + (1 - alpha - beta) * p2;
+    // normal
+    if (m_N.size() != 0)
+    {
+        Vector3f n0 = m_N.col(m_F(0, index)), n1 = m_N.col(m_F(1, index)), n2 = m_N.col(m_F(2, index));
+        normal = (alpha * n0 + beta * n1 + (1 - alpha - beta) * n2).normalized();
+    }
+    else
+        normal = getSurfaceNormal(index);
+    pdf = 1 / m_surface;
+    return pos;
 }
 
 NORI_NAMESPACE_END

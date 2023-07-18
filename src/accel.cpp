@@ -10,14 +10,32 @@
 NORI_NAMESPACE_BEGIN
 
 void Accel::addMesh(Mesh *mesh) {
-    if (m_mesh)
+    if (m_meshes.empty())
+        m_bbox = mesh->getBoundingBox();
+    else
+        m_bbox.expandBy(mesh->getBoundingBox());
+    m_meshes.push_back(mesh);
+    /*if (m_mesh)
         throw NoriException("Accel: only a single mesh is supported!");
     m_mesh = mesh;
-    m_bbox = m_mesh->getBoundingBox();
+    m_bbox = m_mesh->getBoundingBox();*/
 }
 
 void Accel::build() {
     /* Nothing to do here for now */
+    if (m_meshes.empty())
+        return;
+    //Octree deprecated, now use embree
+    /*OctreeNode::V tris(m_mesh->getTriangleCount(), 0);
+    for (int i = 0; i < tris.size(); i++)
+        tris[i] = i;
+    m_root = OctreeNode::build(m_mesh->getBoundingBox(), tris, 1, m_mesh);*/
+    m_emAccel = new EmAccel(m_meshes);
+
+    /*std::cout << "construction completed, total node number: " << node_count << std::endl;
+    std::cout << "leaf nodes number: " << leaf_node_count << std::endl;
+    std::cout << "leaf avg depth: " << leaf_node_depth_count / float(leaf_node_count) << std::endl;
+    std::cout << "leaf avg triangles num: " << leaf_node_tri_count / float(leaf_node_count) << std::endl;*/
 }
 
 bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) const {
@@ -26,23 +44,28 @@ bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) c
 
     Ray3f ray(ray_); /// Make a copy of the ray (we will need to update its '.maxt' value)
 
-    /* Brute force search through all triangles */
-    for (uint32_t idx = 0; idx < m_mesh->getTriangleCount(); ++idx) {
-        float u, v, t;
-        if (m_mesh->rayIntersect(idx, ray, u, v, t)) {
-            /* An intersection was found! Can terminate
-               immediately if this is a shadow ray query */
-            if (shadowRay)
-                return true;
-            ray.maxt = its.t = t;
-            its.uv = Point2f(u, v);
-            its.mesh = m_mesh;
-            f = idx;
-            foundIntersection = true;
-        }
-    }
+    // we got a ray, want to get the intersection result using the octree node
+    //foundIntersection = m_root->RayIntersect(ray, its, shadowRay, f);
+    foundIntersection = m_emAccel->RayIntersect(ray, its, shadowRay, f);
 
-    if (foundIntersection) {
+    //// Brute force search through all triangles
+    //for (uint32_t idx = 0; idx < m_mesh->getTriangleCount(); ++idx) {
+    //    float u, v, t;
+    //    if (m_mesh->rayIntersect(idx, ray, u, v, t)) {
+    //        /* An intersection was found! Can terminate
+    //           immediately if this is a shadow ray query */
+    //        if (shadowRay)
+    //            return true;
+    //        ray.maxt = its.t = t;
+    //        its.uv = Point2f(u, v);
+    //        its.mesh = m_mesh;
+    //        f = idx;
+    //        foundIntersection = true;
+    //    }
+    //}
+    
+
+    if (foundIntersection && !shadowRay) {
         /* At this point, we now know that there is an intersection,
            and we know the triangle index of the closest such intersection.
 
@@ -93,6 +116,7 @@ bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) c
         } else {
             its.shFrame = its.geoFrame;
         }
+        its.primIdx = f;
     }
 
     return foundIntersection;

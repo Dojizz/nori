@@ -36,25 +36,68 @@ public:
         m_ks = 1 - m_kd.maxCoeff();
     }
 
+    Vector3f reflect(Vector3f n, Vector3f wi) const {
+        n.normalize();
+        wi.normalize();
+        Vector3f proj = wi.dot(n) * n;
+        return -wi + 2. * proj;
+    }
+
+    float G1(const Vector3f wv, const Vector3f wh) const {
+        if (wv.dot(wh) / wv.z() <= 0)
+            return 0;
+        float b = 1.0f / (m_alpha * Frame::tanTheta(wv));
+        if (b >= 1.6)
+            return 1;
+        return (3.535 * b + 2.181 * b * b) / (1. + 2.276 * b + 2.577 * b * b);
+    }
+
     /// Evaluate the BRDF for the given pair of directions
     Color3f eval(const BSDFQueryRecord &bRec) const {
-    	throw NoriException("MicrofacetBRDF::eval(): not implemented!");
+        Vector3f wh = (bRec.wi + bRec.wo).normalized();
+        float D = Warp::squareToBeckmannPdf(wh, m_alpha);
+        float F = fresnel(wh.dot(bRec.wi), m_extIOR, m_intIOR);
+        float G = G1(bRec.wi, wh) * G1(bRec.wo, wh);
+        return m_kd * INV_PI + m_ks * D * F * G / (4. * bRec.wi.z() * bRec.wo.z() * wh.z());
     }
 
     /// Evaluate the sampling density of \ref sample() wrt. solid angles
     float pdf(const BSDFQueryRecord &bRec) const {
-    	throw NoriException("MicrofacetBRDF::pdf(): not implemented!");
+        if (Frame::cosTheta(bRec.wo) <= 0)
+            return 0;
+        Vector3f wh = (bRec.wi + bRec.wo).normalized();
+        float Jh = 1 / (4. * abs(wh.dot(bRec.wo)));
+        float D = Warp::squareToBeckmannPdf(wh, m_alpha);
+        return m_ks * D * Jh + (1 - m_ks) * Frame::cosTheta(bRec.wo) * INV_PI;
     }
 
     /// Sample the BRDF
-    Color3f sample(BSDFQueryRecord &bRec, const Point2f &_sample) const {
-    	throw NoriException("MicrofacetBRDF::sample(): not implemented!");
-
+    Color3f sample(BSDFQueryRecord &bRec, const Point2f &sample) const {
+    	//throw NoriException("MicrofacetBRDF::sample(): not implemented!");
+        if (Frame::cosTheta(bRec.wi) <= 0)
+            return Color3f(0.0f);
+        bRec.wi.normalize();
         // Note: Once you have implemented the part that computes the scattered
         // direction, the last part of this function should simply return the
         // BRDF value divided by the solid angle density and multiplied by the
         // cosine factor from the reflection equation, i.e.
         // return eval(bRec) * Frame::cosTheta(bRec.wo) / pdf(bRec);
+        float xi1 = sample[0], xi2 = sample[1];
+        // diffuse
+        if (xi1 < 1 - m_ks) {
+            // reuse
+            xi1 = xi1 / (1 - m_ks);
+            bRec.wo = Warp::squareToCosineHemisphere(Point2f(xi1, xi2));
+        }
+        else {
+            xi1 = (xi1 - (1 - m_ks)) / (m_ks);
+            Vector3f n = Warp::squareToBeckmann(Point2f(xi1, xi2), m_alpha);
+            bRec.wo = reflect(n, bRec.wi);
+        }
+        if (bRec.wo.z() < 0.f) {
+            return Color3f(0.0f);
+        }
+        return eval(bRec) * Frame::cosTheta(bRec.wo) / pdf(bRec);
     }
 
     bool isDiffuse() const {
